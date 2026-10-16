@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Curso de Operador de Caixa — Simulador</title>
+<style>
+:root{
+  color-scheme: light;
+  --bg:#e8edf0; --surface:#ffffff; --ink:#18222a; --muted:#5b6b77; --line:#cdd6dc;
+  --body:#26313b; --key:#3a4753; --key-ink:#f1f5f7;
+  --lcd:#cfe8c9; --lcd-ink:#11301b; --lcd-dim:#4b6b52;
+  --go:#1a7f4b; --go-ink:#ffffff; --warn:#c0392b; --hot:#e8590c;
+  --prod:#f6f8f9;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    color-scheme: dark;
+    --bg:#0f1418; --surface:#182026; --ink:#eaf0f3; --muted:#9aaab5; --line:#2c3943;
+    --body:#222c34; --key:#3a4753; --key-ink:#f1f5f7;
+    --lcd:#b9d9b2; --lcd-ink:#0d2616; --lcd-dim:#3f5e46;
+    --go:#2fae72; --go-ink:#06190f; --warn:#ff8a7a; --hot:#ff8a4c;
+    --prod:#1e2830;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:520px;margin:0 auto;padding:16px 14px 40px}
+h1{font-size:1.5rem;line-height:1.2;margin:8px 0 4px}
+h2{font-size:1.15rem;margin:0 0 8px}
+.muted{color:var(--muted)} .small{font-size:.85rem}
+.hidden{display:none!important}
+button{font:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:3px solid var(--hot);outline-offset:2px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px;margin:12px 0}
+label{display:block;font-weight:600;margin:12px 0 6px}
+input[type=text],input[type=number]{width:100%;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit}
+.primary{background:var(--go);color:var(--go-ink);border:0;border-radius:8px;padding:12px 18px;font-weight:700;width:100%;margin-top:12px}
+.ghost{background:transparent;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 12px}
+.err{color:var(--warn);min-height:1.4em;margin:8px 0 0}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px}
+.stats{font-size:.9rem;color:var(--muted)}
+.levels button{display:block;width:100%;text-align:left;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:8px 0}
+.levels button b{display:block}
+.levels button span{color:var(--muted);font-size:.9rem}
+details{background:var(--surface);border:1px solid var(--line);border-radius:10px;margin:8px 0;padding:10px 14px}
+summary{font-weight:700;cursor:pointer}
+details p,details li{margin:6px 0}
+
+/* cliente */
+.task ul{margin:6px 0 8px;padding-left:20px}
+.task .note{background:rgba(232,89,12,.12);border-left:4px solid var(--hot);padding:8px 10px;margin:8px 0;border-radius:4px}
+
+/* máquina */
+.machine{background:var(--body);border-radius:16px;padding:12px;margin:12px 0;box-shadow:0 6px 0 rgba(0,0,0,.25)}
+.lcd{background:var(--lcd);color:var(--lcd-ink);border-radius:8px;padding:10px 12px;font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+.lines{height:120px;overflow-y:auto;border-bottom:1px dashed var(--lcd-dim);padding-bottom:6px;font-size:.88rem}
+.line{display:flex;justify-content:space-between;gap:8px}
+.empty{color:var(--lcd-dim)}
+.lab{font-size:.78rem;color:var(--lcd-dim);margin-top:8px}
+.big{font-size:1.7rem;font-weight:700;text-align:right;letter-spacing:.5px}
+.msg{font-size:.82rem;min-height:1.3em;color:var(--lcd-dim)}
+.products{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0 4px}
+.products button{background:var(--prod);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 4px;min-height:62px;font-size:.85rem;line-height:1.2}
+.products button small{display:block;color:var(--muted);margin-top:2px}
+.products button:active{transform:translateY(1px)}
+.pad{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px}
+.pad button{background:var(--key);color:var(--key-ink);border:0;border-radius:8px;min-height:48px;font-weight:700;font-size:1.05rem}
+.pad .wide{grid-column:span 2}
+.pad .fn{background:#59503a;font-size:.88rem}
+.pad .ok{background:var(--hot);color:#fff}
+.pay{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.pay button{border:0;border-radius:8px;min-height:50px;font-weight:700;color:#fff}
+.pay .cash{background:#2f6fb0}.pay .tpa{background:#7b4aa8}
+.pay .final{grid-column:span 2;background:var(--go);color:var(--go-ink);font-size:1.05rem}
+
+/* modal */
+#modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center;padding:12px;z-index:10}
+.sheet{background:var(--surface);color:var(--ink);border-radius:14px;max-width:520px;width:100%;max-height:92vh;overflow:auto;padding:16px}
+.score{font-size:1.4rem;font-weight:800}
+.good{color:var(--go)} .bad{color:var(--warn)}
+pre.talao{background:#fbfaf6;color:#222;border:1px dashed #999;padding:10px;font:.8rem/1.35 ui-monospace,Menlo,Consolas,monospace;overflow-x:auto;white-space:pre}
+table{width:100%;border-collapse:collapse;font-size:.92rem}
+td,th{padding:6px 4px;border-bottom:1px solid var(--line);text-align:left}
+td:last-child,th:last-child{text-align:right}
+.daybar{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin:8px 0}
+.daybar .track{height:8px;background:var(--bg);border-radius:4px;margin-top:8px;overflow:hidden}
+.daybar .track i{display:block;height:100%;background:var(--go)}
+.daybar .reci{margin:8px 0 0;font-size:.9rem}
+.credit{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);text-align:center;color:var(--muted);font-size:.85rem}
+.credit a{color:var(--ink);font-weight:600}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<main>
+
+<!-- ENTRADA -->
+<section id="login">
+  <h1>Curso de Operador de Caixa</h1>
+  <p class="muted">Treina na máquina antes de entrares no supermercado.</p>
+  <div class="card">
+    <label for="code">Código de acesso</label>
+    <input type="text" id="code" autocomplete="off" autocapitalize="characters" placeholder="Escreve o teu código">
+    <button class="primary" id="enter">Entrar no curso</button>
+    <p class="err" id="loginMsg"></p>
+  </div>
+  <p class="muted small">Ainda não tens código? Pede no WhatsApp indicado no fim da página.</p>
+</section>
+
+<!-- MENU -->
+<section id="menu" class="hidden">
+  <div class="topbar"><h1 id="planoTitulo">Curso</h1><button class="ghost" id="sair">Sair</button></div>
+  <p class="stats" id="menuStats"></p>
+  <div class="daybar" id="dayBar"></div>
+  <div id="teoriaBtnWrap"></div>
+  <h2>Simulador da máquina</h2>
+  <div class="levels" id="levels"></div>
+</section>
+
+<!-- TEORIA -->
+<section id="teoria" class="hidden">
+  <div class="topbar"><h1>Teoria</h1><button class="ghost" data-back>Voltar</button></div>
+  <details open><summary>1. Atendimento ao cliente</summary>
+    <p>Cumprimenta, olha para o cliente e sorri. Mantém o balcão limpo e arrumado. No fim, agradece e deseja bom dia ou boa tarde.</p></details>
+  <details><summary>2. Registar produtos</summary>
+    <p>Regista cada artigo uma vez e confere a quantidade no visor. Se o produto não tem preço ou etiqueta, chama o supervisor. Nunca inventes um preço.</p></details>
+  <details><summary>3. Dinheiro e troco</summary>
+    <p>Diz o valor recebido em voz alta e deixa a nota à vista até dares o troco.</p>
+    <p><b>Troco = valor recebido − total da compra.</b> Exemplo: total 3.700 Kz, cliente entrega 5.000 Kz, troco 1.300 Kz.</p>
+    <p>Confere as notas recebidas. Só guardas a nota do cliente na gaveta depois de entregares o troco.</p></details>
+  <details><summary>4. Pagamento por TPA</summary>
+    <p>Confirma o valor com o cliente, deixa-o inserir ou aproximar o cartão e digitar o PIN. Espera a aprovação, entrega o talão e nunca peças nem guardes o PIN.</p></details>
+  <details><summary>5. Erros e anulações</summary>
+    <p>Se te enganares num artigo, usa Anular antes de iniciar o pagamento. Se o cliente desistir de um produto, anula-o e confirma o novo total. Devoluções depois do pagamento precisam de autorização do supervisor.</p></details>
+  <details><summary>6. Fecho de caixa</summary>
+    <p>No fim do turno conta o dinheiro da gaveta: fundo de caixa + vendas em dinheiro. Confere o total dos pagamentos por TPA no relatório. Se houver diferença, avisa o supervisor e anota.</p></details>
+  <details><summary>7. Reciclagem (última semana)</summary>
+    <p>Na semana de reciclagem refazes os níveis 2, 4 e 5 do simulador até acertares sem erros.</p></details>
+</section>
+
+<!-- SIMULADOR -->
+<section id="sim" class="hidden">
+  <div class="topbar"><h1 id="simTitulo" style="font-size:1.15rem"></h1><button class="ghost" data-back>Voltar</button></div>
+  <p class="stats" id="simStats"></p>
+
+  <div id="simBox">
+    <div class="card task" id="task"></div>
+    <div class="machine">
+      <div class="lcd">
+        <div class="lines" id="lines"></div>
+        <div class="lab" id="lab"></div>
+        <div class="big" id="big"></div>
+        <div class="msg" id="msg"></div>
+      </div>
+      <div class="products" id="products"></div>
+      <div class="pad" id="pad"></div>
+      <div class="pay">
+        <button class="cash" id="bCash">Dinheiro</button>
+        <button class="tpa" id="bTpa">TPA</button>
+        <button class="final" id="bFinal">Finalizar venda</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="fechoBox" class="hidden"></div>
+</section>
+
+<footer class="credit">Desenvolvido por Lando Augusto<br>WhatsApp: <a href="https://wa.me/244943804370">943804370</a></footer>
+
+</main>
+
+<div id="modal" class="hidden"><div class="sheet" id="sheet"></div></div>
+
+<script>
+(function(){
+const $ = id => document.getElementById(id);
+const fmt = n => String(n).replace(/\B(?=(\d{3})+(?!\d))/g,".") + " Kz";
+const rnd = (a,b) => Math.floor(Math.random()*(b-a+1))+a;
+const shuffle = arr => { const a=arr.slice(); for(let i=a.length-1;i>0;i--){const j=rnd(0,i);[a[i],a[j]]=[a[j],a[i]];} return a; };
+
+/*CODE-START*/
+const SECRET="LANDO-CAIXA-2026";
+const ALPHA="23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+const EPOCH=Date.UTC(2026,0,1);
+const toB=(n,len)=>{let s="";for(let i=0;i<len;i++){s=ALPHA[n%32]+s;n=Math.floor(n/32);}return s;};
+const fromB=s=>{let n=0;for(const c of s){const i=ALPHA.indexOf(c);if(i<0)return -1;n=n*32+i;}return n;};
+function hash(str){
+  let h1=0xdeadbeef,h2=0x41c6ce57;
+  for(let i=0;i<str.length;i++){const ch=str.charCodeAt(i);h1=Math.imul(h1^ch,2654435761);h2=Math.imul(h2^ch,1597334677);}
+  h1=Math.imul(h1^(h1>>>16),2246822507)^Math.imul(h2^(h2>>>13),3266489909);
+  h2=Math.imul(h2^(h2>>>16),2246822507)^Math.imul(h1^(h1>>>13),3266489909);
+  return 4294967296*(2097151&h2)+(h1>>>0);
+}
+const checkOf=p=>toB(hash(p+SECRET)%1048576,4);
+const fmtCode=c=>c.slice(0,4)+"-"+c.slice(4,8)+"-"+c.slice(8);
+function makeCode(plano,days,deadline){
+  let r="";for(let i=0;i<2;i++)r+=ALPHA[Math.floor(Math.random()*32)];
+  const p=(plano==="completo"?"C":"P")+toB(days,2)+toB(deadline,3)+r;
+  return fmtCode(p+checkOf(p));
+}
+function parseCode(raw){
+  const bad={ok:false,erro:"Código inválido. Confere o código que recebeste e tenta de novo."};
+  const c=String(raw).toUpperCase().replace(/[^A-Z0-9]/g,"");
+  if(c.length!==12) return bad;
+  const p=c.slice(0,8);
+  if(checkOf(p)!==c.slice(8)) return bad;
+  const days=fromB(p.slice(1,3)), deadline=fromB(p.slice(3,6));
+  if(days<1||deadline<0||(p[0]!=="C"&&p[0]!=="P")) return bad;
+  return {ok:true,code:fmtCode(c),plano:p[0]==="C"?"completo":"pratica",days:days,deadline:deadline};
+}
+/*CODE-END*/
+
+/* ACESSO: validade, contador de dias e gravação no telemóvel */
+const STORE="caixa_v1";
+let DB={sessao:null,usados:{},stats:{clientes:0,pontos:0},visto:0};
+function loadDB(){ try{ const t=localStorage.getItem(STORE); if(t) DB=Object.assign(DB,JSON.parse(t)); }catch(e){} }
+function persist(){ try{ localStorage.setItem(STORE,JSON.stringify(DB)); }catch(e){} }
+function localDay(){ const n=new Date(); return Math.floor((Date.UTC(n.getFullYear(),n.getMonth(),n.getDate())-EPOCH)/86400000); }
+function today(){ const t=Math.max(localDay(),DB.visto||0); if(t!==DB.visto){ DB.visto=t; persist(); } return t; }
+const fmtDay=n=>{ const d=new Date(EPOCH+n*86400000); return String(d.getUTCDate()).padStart(2,"0")+"/"+String(d.getUTCMonth()+1).padStart(2,"0")+"/"+d.getUTCFullYear(); };
+const planName=s=>(s.plano==="completo"?"Plano completo":"Plano prática")+" · "+s.days+" dias";
+function dayInfo(){ const dia=today()-session.start+1; return {dia:dia,total:session.days,restam:session.days-dia}; }
+function checkAccess(){
+  if(!session) return false;
+  const i=dayInfo();
+  if(i.dia>i.total){
+    const fim=fmtDay(session.start+session.days-1);
+    DB.sessao=null; persist(); session=null; $("code").value="";
+    $("loginMsg").textContent="O teu acesso terminou em "+fim+". Fala com o Lando Augusto no WhatsApp para renovar.";
+    closeModal(); show("login"); return false;
+  }
+  return true;
+}
+function renderDayBar(){
+  const i=dayInfo();
+  const pct=Math.min(100,Math.round(i.dia/i.total*100));
+  const falta=i.restam>1?"restam "+i.restam+" dias":(i.restam===1?"resta 1 dia":"último dia de acesso");
+  $("dayBar").innerHTML='<b>Dia '+i.dia+' de '+i.total+'</b> · '+falta+'<div class="track"><i style="width:'+pct+'%"></i></div>'+
+    (session.plano==="completo"&&i.total>=14&&i.dia>i.total-7?'<p class="reci"><b>Semana de reciclagem.</b> Refaz os níveis 2, 4 e 5 até acertares sem erros.</p>':"");
+}
+
+const PRODUCTS = [
+  {id:1,n:"Arroz 1kg",p:1800},{id:2,n:"Óleo 1L",p:2500},{id:3,n:"Açúcar 1kg",p:1500},
+  {id:4,n:"Água 1,5L",p:500},{id:5,n:"Sumo 1L",p:1200},{id:6,n:"Pão",p:200},
+  {id:7,n:"Feijão 1kg",p:2200},{id:8,n:"Massa 500g",p:900},{id:9,n:"Sabonete",p:600},
+  {id:10,n:"Leite 1L",p:1300},{id:11,n:"Ovos dúzia",p:2800},{id:12,n:"Bolacha",p:700}
+];
+const prod = id => PRODUCTS.find(x=>x.id===id);
+
+const LEVELS = [
+  {id:1,nome:"Nível 1 · Registar produtos",desc:"Regista os artigos e recebe o valor exato.",items:[2,3],pay:"exato"},
+  {id:2,nome:"Nível 2 · Dinheiro e troco",desc:"Recebe dinheiro e calcula o troco.",items:[3,4],pay:"dinheiro"},
+  {id:3,nome:"Nível 3 · Pagamento por TPA",desc:"Cobra com cartão.",items:[3,5],pay:"tpa"},
+  {id:4,nome:"Nível 4 · Anular e corrigir",desc:"O cliente desiste de um artigo. Dinheiro ou TPA.",items:[3,5],pay:"misto",anula:true},
+  {id:5,nome:"Nível 5 · Fecho de caixa",desc:"Confere o dinheiro e o TPA no fim do turno.",fecho:true}
+];
+
+let session=null, stats={clientes:0,pontos:0};
+let curLevel=null, sc=null, cart=[], buf="", payMode=null, paid=null;
+
+function show(id){
+  if(id!=="login" && !checkAccess()) return;
+  ["login","menu","teoria","sim"].forEach(s=>$(s).classList.toggle("hidden",s!==id));
+  window.scrollTo(0,0);
+}
+function closeModal(){ $("modal").classList.add("hidden"); }
+function openModal(html){ $("sheet").innerHTML=html; $("modal").classList.remove("hidden"); }
+function statsText(){ return `Clientes atendidos: ${stats.clientes} · Pontos: ${stats.pontos}`; }
+function updateStats(){ $("menuStats").textContent=statsText(); $("simStats").textContent=statsText(); persist(); }
+
+/* ENTRADA */
+function login(){
+  const r=parseCode($("code").value);
+  if(!r.ok){ $("loginMsg").textContent=r.erro; return; }
+  let start=DB.usados[r.code];
+  if(start==null){
+    if(today()>r.deadline){ $("loginMsg").textContent="Este código já passou do prazo de ativação. Pede um código novo."; return; }
+    start=today(); DB.usados[r.code]=start; DB.stats={clientes:0,pontos:0}; stats=DB.stats;
+  }
+  session={code:r.code,plano:r.plano,days:r.days,start:start};
+  session.nome=planName(session);
+  DB.sessao={code:r.code,plano:r.plano,days:r.days,start:start}; persist();
+  if(!checkAccess()) return;
+  $("loginMsg").textContent="";
+  $("planoTitulo").textContent=session.nome;
+  buildMenu(); show("menu");
+}
+$("enter").addEventListener("click",login);
+$("code").addEventListener("keydown",e=>{ if(e.key==="Enter") login(); });
+$("sair").addEventListener("click",()=>{ session=null; DB.sessao=null; persist(); $("code").value=""; $("loginMsg").textContent=""; show("login"); });
+document.querySelectorAll("[data-back]").forEach(b=>b.addEventListener("click",()=>{ buildMenu(); show("menu"); }));
+
+/* MENU */
+function buildMenu(){
+  if(!checkAccess()) return;
+  updateStats(); renderDayBar();
+  const w=$("teoriaBtnWrap");
+  w.innerHTML="";
+  const b=document.createElement("div");
+  if(session.plano==="completo"){
+    b.innerHTML='<h2>Teoria</h2><div class="levels"><button id="goTeoria"><b>Aulas de teoria</b><span>Atendimento, troco, TPA, erros e fecho de caixa.</span></button></div>';
+    w.appendChild(b);
+    $("goTeoria").addEventListener("click",()=>show("teoria"));
+  } else {
+    b.innerHTML='<p class="muted small">A teoria faz parte do plano completo. Neste plano tens o simulador.</p>';
+    w.appendChild(b);
+  }
+  const L=$("levels"); L.innerHTML="";
+  LEVELS.forEach(l=>{
+    const btn=document.createElement("button");
+    btn.innerHTML=`<b>${l.nome}</b><span>${l.desc}</span>`;
+    btn.addEventListener("click",()=>startLevel(l));
+    L.appendChild(btn);
+  });
+}
+
+/* SIMULADOR */
+function startLevel(L){
+  if(!checkAccess()) return;
+  curLevel=L; cart=[]; buf=""; payMode=null; paid=null;
+  $("simTitulo").textContent=L.nome;
+  updateStats();
+  show("sim");
+  if(L.fecho){ $("simBox").classList.add("hidden"); $("fechoBox").classList.remove("hidden"); buildFecho(); return; }
+  $("fechoBox").classList.add("hidden"); $("simBox").classList.remove("hidden");
+  sc=newScenario(L);
+  renderTask(); buildProducts(); buildPad(); setMsg("Cliente na caixa. Regista os artigos."); render();
+}
+
+function newScenario(L){
+  const n=rnd(L.items[0],L.items[1]);
+  const picks=shuffle(PRODUCTS).slice(0,n+(L.anula?1:0));
+  const all=picks.map(p=>({p,q:rnd(1,3)}));
+  let drop=null, wanted=all;
+  if(L.anula){ drop=all[all.length-1]; wanted=all.slice(0,-1); }
+  const total=wanted.reduce((s,l)=>s+l.p.p*l.q,0);
+  let method="dinheiro";
+  if(L.pay==="tpa") method="tpa";
+  if(L.pay==="misto") method=Math.random()<0.5?"tpa":"dinheiro";
+  let given=total;
+  if(method==="dinheiro" && L.pay!=="exato"){
+    const bills=[1000,2000,5000,10000,20000,50000];
+    let i=bills.findIndex(b=>b>=total);
+    if(i<0) i=bills.length-1;
+    if(bills[i]===total && i<bills.length-1) i++;
+    given=bills[i];
+  }
+  return {all,wanted,drop,total,method,given};
+}
+
+function renderTask(){
+  let h="<h2>Cliente na fila</h2><ul>"+sc.all.map(l=>`<li>${l.q}× ${l.p.n}</li>`).join("")+"</ul>";
+  if(sc.drop) h+=`<div class="note">O cliente desistiu de <b>${sc.drop.q}× ${sc.drop.p.n}</b>. Anula este artigo antes de cobrar.</div>`;
+  h+= sc.method==="tpa" ? "<p><b>Paga com cartão (TPA).</b></p>" : `<p><b>Paga em dinheiro.</b> Entrega ${fmt(sc.given)}.</p>`;
+  $("task").innerHTML=h;
+}
+
+function buildProducts(){
+  const box=$("products"); box.innerHTML="";
+  PRODUCTS.forEach(p=>{
+    const b=document.createElement("button");
+    b.innerHTML=`${p.n}<small>${fmt(p.p)}</small>`;
+    b.addEventListener("click",()=>addProduct(p));
+    box.appendChild(b);
+  });
+}
+function buildPad(){
+  const keys=[["7"],["8"],["9"],["C","fn"],["4"],["5"],["6"],["Anular","fn","ANULAR"],["1"],["2"],["3"],["⌫","fn"],["0","wide"],["00"],["OK","ok"]];
+  const pad=$("pad"); pad.innerHTML="";
+  keys.forEach(k=>{
+    const b=document.createElement("button");
+    b.textContent=k[0];
+    if(k[1]) b.className=k[1];
+    b.addEventListener("click",()=>key(k[2]||k[0]));
+    pad.appendChild(b);
+  });
+}
+
+const cartTotal = () => cart.reduce((s,l)=>s+l.p.p*l.q,0);
+function setMsg(t){ $("msg").textContent=t; }
+
+function addProduct(p){
+  if(paid||payMode){ setMsg("Já estás no pagamento. Carrega C para voltar."); render(); return; }
+  const q=buf?parseInt(buf,10):1;
+  if(!q){ setMsg("Quantidade inválida."); buf=""; render(); return; }
+  const ex=cart.find(l=>l.p.id===p.id);
+  if(ex) ex.q+=q; else cart.push({p,q});
+  buf=""; setMsg(`${q}× ${p.n} registado.`); render();
+}
+
+function key(k){
+  if(/^\d+$/.test(k)){
+    if(paid){ setMsg("Venda já paga. Carrega C para refazer."); render(); return; }
+    if((buf+k).length>6) return;
+    buf=(buf+k).replace(/^0+(?=\d)/,"");
+  } else if(k==="⌫"){
+    buf=buf.slice(0,-1);
+  } else if(k==="C"){
+    if(buf){ buf=""; }
+    else if(paid||payMode){ paid=null; payMode=null; setMsg("Pagamento cancelado."); }
+  } else if(k==="ANULAR"){
+    if(paid||payMode) setMsg("Cancela o pagamento primeiro (C).");
+    else if(!cart.length) setMsg("Não há artigos para anular.");
+    else { const r=cart.pop(); setMsg("Anulado: "+r.p.n+"."); }
+  } else if(k==="OK"){
+    if(payMode==="dinheiro" && !paid){
+      const a=parseInt(buf||"0",10);
+      if(a<cartTotal()) setMsg("Valor insuficiente. Confere o que o cliente entregou.");
+      else { paid={method:"dinheiro",amount:a}; payMode=null; buf=""; setMsg("Recebido "+fmt(a)+"."); }
+    } else setMsg("Escolhe um artigo ou uma forma de pagamento.");
+  }
+  render();
+}
+
+$("bCash").addEventListener("click",()=>{
+  if(!sc||sc.fecho) return;
+  if(!cart.length){ setMsg("Regista os artigos primeiro."); render(); return; }
+  if(paid){ setMsg("Cancela o pagamento primeiro (C)."); render(); return; }
+  payMode="dinheiro"; buf=""; setMsg("Digita o valor recebido e carrega OK."); render();
+});
+$("bTpa").addEventListener("click",()=>{
+  if(!sc||sc.fecho) return;
+  if(!cart.length){ setMsg("Regista os artigos primeiro."); render(); return; }
+  if(paid){ setMsg("Cancela o pagamento primeiro (C)."); render(); return; }
+  paid={method:"tpa",amount:cartTotal()}; payMode=null; buf=""; setMsg("TPA aprovado."); render();
+});
+$("bFinal").addEventListener("click",()=>{
+  if(!sc||sc.fecho) return;
+  if(!cart.length){ setMsg("A venda está vazia."); render(); return; }
+  if(!paid){ setMsg("Escolhe Dinheiro ou TPA antes de finalizar."); render(); return; }
+  if(paid.method==="dinheiro" && paid.amount-cartTotal()>0){
+    openModal(`<h2>Troco</h2><p>Total: <b>${fmt(cartTotal())}</b><br>Recebido: <b>${fmt(paid.amount)}</b></p>
+      <label for="trocoIn">Quanto de troco entregas ao cliente? (Kz)</label>
+      <input type="number" id="trocoIn" inputmode="numeric" min="0">
+      <button class="primary" id="trocoOk">Confirmar troco</button>`);
+    $("trocoIn").focus();
+    $("trocoOk").addEventListener("click",()=>{
+      const v=parseInt($("trocoIn").value||"0",10);
+      finish(v);
+    });
+  } else finish(null);
+});
+
+function render(){
+  const L=$("lines");
+  L.innerHTML = cart.length
+    ? cart.map(l=>`<div class="line"><span>${l.q}× ${l.p.n}</span><span>${fmt(l.p.p*l.q)}</span></div>`).join("")
+    : '<div class="empty">Sem artigos</div>';
+  L.scrollTop=L.scrollHeight;
+  let lab="Total", big=fmt(cartTotal());
+  if(payMode==="dinheiro" && !paid){ lab="Valor recebido"; big=(buf||"0")+" Kz"; }
+  else if(buf){ lab="Quantidade do próximo artigo"; big="× "+buf; }
+  else if(paid){ lab=paid.method==="tpa"?"TPA aprovado":"Dinheiro recebido"; big=fmt(paid.amount); }
+  $("lab").textContent=lab; $("big").textContent=big;
+}
+
+function evaluate(trocoAns){
+  const errs=[];
+  const want=new Map(sc.wanted.map(l=>[l.p.id,l.q]));
+  const got=new Map(cart.map(l=>[l.p.id,l.q]));
+  want.forEach((q,id)=>{ const g=got.get(id)||0; if(g!==q) errs.push(`${prod(id).n}: o cliente leva ${q} e registaste ${g}.`); });
+  got.forEach((q,id)=>{
+    if(!want.has(id)) errs.push(sc.drop&&sc.drop.p.id===id ? `${prod(id).n}: o cliente desistiu. Tinhas de anular.` : `${prod(id).n} não faz parte da compra.`);
+  });
+  if(paid.method!==sc.method) errs.push(`O cliente paga por ${sc.method==="tpa"?"TPA":"dinheiro"} e registaste ${paid.method==="tpa"?"TPA":"dinheiro"}.`);
+  else if(paid.method==="dinheiro" && paid.amount!==sc.given) errs.push(`O cliente entregou ${fmt(sc.given)} e registaste ${fmt(paid.amount)}.`);
+  if(trocoAns!==null){
+    const certo=paid.amount-cartTotal();
+    if(trocoAns!==certo) errs.push(`Troco errado: entregaste ${fmt(trocoAns)} e o certo era ${fmt(certo)}.`);
+  }
+  return errs;
+}
+
+function receipt(trocoAns){
+  const w=30, line=(a,b)=>a.padEnd(w-b.length)+b;
+  let t="      SUPERMERCADO DE TREINO\n"+"-".repeat(w)+"\n";
+  cart.forEach(l=>{ t+=line(`${l.q}x ${l.p.n}`.slice(0,w-12),fmt(l.p.p*l.q))+"\n"; });
+  t+="-".repeat(w)+"\n"+line("TOTAL",fmt(cartTotal()))+"\n";
+  t+=line("Pagamento",paid.method==="tpa"?"TPA":"Dinheiro")+"\n";
+  if(paid.method==="dinheiro"){
+    t+=line("Recebido",fmt(paid.amount))+"\n"+line("Troco",fmt(paid.amount-cartTotal()))+"\n";
+  }
+  t+="\n     Obrigado e volte sempre!";
+  return t;
+}
+
+function finish(trocoAns){
+  const errs=evaluate(trocoAns);
+  const pts=Math.max(0,100-errs.length*25);
+  stats.clientes++; stats.pontos+=pts; updateStats();
+  const ok=errs.length===0;
+  openModal(`<div class="score ${ok?"good":"bad"}">${ok?"Venda correta!":"Venda com erros"} · ${pts} pontos</div>
+    ${ok?"<p>Registaste tudo certo. Bom trabalho.</p>":"<p>O que corrigir:</p><ul>"+errs.map(e=>`<li>${e}</li>`).join("")+"</ul>"}
+    <p class="muted small">Talão da venda</p>
+    <pre class="talao">${receipt(trocoAns)}</pre>
+    <button class="primary" id="nextCli">Próximo cliente</button>
+    <button class="ghost" id="toMenu" style="width:100%;margin-top:8px">Voltar ao menu</button>`);
+  $("nextCli").addEventListener("click",()=>{ closeModal(); startLevel(curLevel); });
+  $("toMenu").addEventListener("click",()=>{ closeModal(); buildMenu(); show("menu"); });
+}
+
+/* NÍVEL 5 — FECHO DE CAIXA */
+function buildFecho(){
+  const fundo=[10000,20000,50000][rnd(0,2)];
+  const n=rnd(5,6);
+  const vendas=[];
+  for(let i=1;i<=n;i++) vendas.push({n:i,total:rnd(10,150)*100,m:Math.random()<0.5?"dinheiro":"tpa"});
+  const din=vendas.filter(v=>v.m==="dinheiro").reduce((s,v)=>s+v.total,0);
+  const tpa=vendas.filter(v=>v.m==="tpa").reduce((s,v)=>s+v.total,0);
+  const certoGaveta=fundo+din;
+  $("fechoBox").innerHTML=`
+    <div class="card">
+      <h2>Fim do turno</h2>
+      <p>Fundo de caixa no início: <b>${fmt(fundo)}</b></p>
+      <table><tr><th>Venda</th><th>Forma</th><th>Valor</th></tr>
+      ${vendas.map(v=>`<tr><td>${v.n}</td><td>${v.m==="tpa"?"TPA":"Dinheiro"}</td><td>${fmt(v.total)}</td></tr>`).join("")}
+      </table>
+      <label for="fGaveta">Quanto dinheiro deve estar na gaveta? (fundo + vendas em dinheiro)</label>
+      <input type="number" id="fGaveta" inputmode="numeric">
+      <label for="fTpa">Quanto deve constar no relatório do TPA?</label>
+      <input type="number" id="fTpa" inputmode="numeric">
+      <button class="primary" id="fOk">Conferir fecho</button>
+    </div>`;
+  $("fOk").addEventListener("click",()=>{
+    const g=parseInt($("fGaveta").value||"-1",10), t=parseInt($("fTpa").value||"-1",10);
+    const errs=[];
+    if(g!==certoGaveta) errs.push(`Gaveta: o certo era ${fmt(fundo)} + ${fmt(din)} = ${fmt(certoGaveta)}.`);
+    if(t!==tpa) errs.push(`TPA: o certo era ${fmt(tpa)}.`);
+    const pts=Math.max(0,100-errs.length*50);
+    stats.clientes++; stats.pontos+=pts; updateStats();
+    const ok=!errs.length;
+    openModal(`<div class="score ${ok?"good":"bad"}">${ok?"Fecho correto!":"Fecho com diferenças"} · ${pts} pontos</div>
+      ${ok?"<p>Os valores batem certo.</p>":"<ul>"+errs.map(e=>`<li>${e}</li>`).join("")+"</ul>"}
+      <button class="primary" id="nextF">Novo fecho</button>
+      <button class="ghost" id="toMenu2" style="width:100%;margin-top:8px">Voltar ao menu</button>`);
+    $("nextF").addEventListener("click",()=>{ closeModal(); buildFecho(); });
+    $("toMenu2").addEventListener("click",()=>{ closeModal(); buildMenu(); show("menu"); });
+  });
+}
+
+function init(){
+  loadDB(); stats=DB.stats; today();
+  if(DB.sessao){
+    session=Object.assign({},DB.sessao); session.nome=planName(session);
+    if(!checkAccess()) return;
+    $("planoTitulo").textContent=session.nome;
+    buildMenu(); show("menu"); return;
+  }
+  show("login");
+}
+init();
+})();
+</script>
+</body>
+</html>
